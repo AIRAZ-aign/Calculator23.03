@@ -1,0 +1,227 @@
+
+<html>
+<header>
+    <meta charset="utf-8">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</header>
+<body>
+<h1 align=center>Быстрый счёт</h1>
+<div id=app>
+	<table>
+	<tr>
+	<td width="300px">
+	<table>
+	<tr v-for="item in examples">
+		<td><span>{{render_example(item.example)}} =
+    			<input v-if="state == 'run'" size=3 v-model="item.answer">
+	    		<span v-else>{{item.answer}}</span>
+			</span>
+	<tr><td><button @click="finish()" :disabled="state != 'run'">Проверить ответы</button>
+	</table>
+	</td>
+	<td>
+	<table>
+	  <tr>
+		<td><span>Операция</span>
+		<td><select v-model="config.operation">
+			<option value="+">Сложение</option>
+			<option value="-">Вычитание</option>
+			<option value="*">Умножение</option>
+			<option value="/">Деление</option>
+		</select>
+	  <tr>
+		<td><span>Количество примеров</span>
+		<td><input size=5 v-model="config.quantity">
+	  <tr>
+		<td><span>Количество знаков после запятой</span>
+		<td><select v-model="config.drobi">
+			<option value="q">Целые</option>
+			<option value="w">Десятые</option>
+			<option value="e">Сотые</option>
+		</select>
+
+	  <tr><td><span>Сколько знаков</span>
+		<td><select v-model="config.chisl">
+			<option value="1">Однозначные</option>
+			<option value="2">Двухзначные</option>
+			<option value="3">Трехзначные</option>
+			<option value="4">Четырехзначные</option>
+		</select>
+
+	  <tr><td><span>Отрицательные числа</span>
+		<td><input type=checkbox checked v-model="config.otric">
+
+	  <tr><td><button @click="start()" :disabled="state != 'setup'">Начать решать</button>
+	</table>
+	<hr>
+	<table>
+	  <tr>
+		<td><span>Количество правильных ответов</span>
+		<td><span>{{right_count}}</span>
+	  <tr>
+		<td><span>Количество НЕ правильных ответов</span>
+		<td><span>{{wrong_count}}</span>
+	  <tr>
+		<td><span>Затраченное время</span>
+		<td><span>{{format_elapsed()}}</span>
+	</table>
+	</td>
+	</table>
+</div>
+<script>
+const digits2 =
+    new Intl.NumberFormat(
+        undefined,
+        { minimumIntegerDigits: 2, maximumSignificantDigits: 2 });
+
+
+Vue.createApp({
+    methods: {
+        format_elapsed() {
+            return `${Math.trunc(this.$data.elapsed_time/60000)}:${digits2.format(Math.trunc(this.$data.elapsed_time/1000)%60)}`
+        },
+
+        update_timer() {
+            if (this.$data.state == 'run') {
+                this.$data.elapsed_time = Date.now() - this.$data.start_time;
+                setTimeout(() => {this.update_timer()}, 1000);
+            }
+        },
+
+        gen_examples() {
+            let examples = [];
+            let answer_right = 0;
+            let answer_wrong = 0;
+            if (this.$data.config.chisl == 1) {
+  				minz = 1;
+  				maxz = 9;
+			} else if (this.$data.config.chisl == 2) {
+  				minz = 10;
+  				maxz = 99;
+			} else if (this.$data.config.chisl == 3) {
+				minz = 100;
+				maxz = 999;
+			} else if (this.$data.config.chisl == 4) {
+				minz = 1000;
+				maxz = 9999;
+			}
+
+            for (let i = 0; i < this.$data.config.quantity; ++i) {
+            	function getrand(min, max) {
+    				return Math.floor(Math.random() * (max - min +1)) + min;
+				}
+				let pr1 = getrand(minz, maxz);
+				let pr2 = getrand(minz, maxz);
+				if (this.$data.config.otric === false) {
+					do {
+  						pr1 = getrand(minz, maxz);
+  						pr2 = getrand(minz, maxz);
+					} while (pr1 < pr2);
+				}
+				if (this.$data.config.drobi == 'w') {
+					let gen_drobi = getrand(1, 2); // da ili net;
+					let gen_drobi2 = getrand(1, 3); // 1 ili 2;
+					if (gen_drobi == 1) {
+						if (gen_drobi2 == 1) {
+							pr1 = pr1/10;
+						} else if (gen_drobi2 == 2) {
+							pr2 = pr2/10;
+						} else {
+							pr1 = pr1/10;
+							pr2 = pr2/10;
+						}
+					}
+				} else if (this.$data.config.drobi == 'e') {
+					let gen_drobi = getrand(1, 2); // da ili net;
+					let gen_drobi2 = getrand(1, 3); // 1 ili 2;
+					if (gen_drobi == 1) {
+						if (gen_drobi2 == 1) {
+							pr1 = pr1/100;
+						} else if (gen_drobi2 == 2) {
+							pr2 = pr2/100;
+						} else {
+							pr1 = pr1/100;
+							pr2 = pr2/100;
+						}
+					}
+				}
+                examples.push({
+                    example: {
+                        p1: pr1,
+                        operation: this.$data.config.operation,
+                        p2: pr2,
+                    },
+                    answer: null,
+                    right: null,
+                })
+            }   // конец for
+            console.log('set examples', examples, this.$data.config.quantity);
+            this.$data.examples = examples;
+        },
+
+        start() {
+            this.gen_examples();
+            this.$data.start_time = Date.now();
+            this.$data.elapsed_time = 1;
+            this.$data.state = 'run';
+            this.update_timer();
+        },
+
+        finish() {
+            this.$data.state = 'setup';
+            this.$data.right_count = 0;
+            this.$data.wrong_count = 0;
+            for (const item of this.$data.examples) {
+                    let right_pr = null;
+                    if (this.$data.config.operation == "+") {
+                    	right_pr = item.example.p1 + item.example.p2;
+                    } else if (this.$data.config.operation == "-") {
+                    	right_pr = item.example.p1 - item.example.p2;
+                    } else if (this.$data.config.operation == "*") {
+                    	right_pr = item.example.p1 * item.example.p2;
+                    } else if (this.$data.config.operation == "/") {
+                    	right_pr = item.example.p1 / item.example.p2;
+                    }
+                    if (item.answer !== null && item.answer == right_pr) {
+                    	item.right = true;
+                    	this.$data.right_count++;
+                    } else {
+                    	this.$data.wrong_count++;
+                    }
+            }
+            this.$data.start_time = null;
+        },
+
+        render_example(example) {
+            return `${example.p1} ${example.operation} ${example.p2}`
+        },
+    },
+    data() {
+        return {
+            examples: [
+                // {
+                //     example: {
+                //         p1: 10,
+                //         operation: '+',
+                //         p2: 20,
+                //     },
+                //     answer: null,
+                // },
+            ],
+            config: {
+                quantity: 2,
+                operation: '+',
+                chisl: 2,
+                drobi: 'q',
+            },
+            state: 'setup',  // run
+            start_time: null,
+            elapsed_time: null,
+            right_count: null,
+            wrong_count: null,
+        }
+    }
+}).mount('#app')
+</script>
+</body>
+</html>
